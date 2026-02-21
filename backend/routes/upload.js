@@ -63,12 +63,26 @@ router.post('/', upload.array('files', 20), async (req, res) => {
         // Extract data using universal extractor
         const extractedData = await extractDataFromFile(file.path, file.originalname);
         
+        // For PDF files with text content, use AI to extract quotation fields
+        let quotationData = null;
+        if (extractedData.fileType === 'PDF' && extractedData.content && !extractedData.isStructured) {
+          try {
+            console.log(`🤖 Using AI to extract quotation fields from PDF...`);
+            quotationData = await extractQuotationData(extractedData.content, file.originalname);
+          } catch (aiError) {
+            console.warn('AI extraction failed, using raw data:', aiError.message);
+          }
+        }
+        
+        // Use AI-extracted data if available, otherwise use raw extracted data
+        const finalData = quotationData || extractedData;
+        
         results.push({
           fileName: file.originalname,
           fileType: extractedData.fileType,
           filePath: file.path,
           fileSize: file.size,
-          ...extractedData,
+          ...finalData,
           success: true
         });
         
