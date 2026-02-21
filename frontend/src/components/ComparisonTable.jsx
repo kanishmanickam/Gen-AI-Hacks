@@ -1,6 +1,6 @@
 /**
- * ComparisonTable Component
- * Displays extracted vendor data in a comparison table
+ * ComparisonTable Component - Enhanced UI
+ * Displays vendor comparison with detailed metrics and value analysis
  */
 
 import React, { useState } from 'react';
@@ -12,24 +12,15 @@ const ComparisonTable = ({ data, comparison, onCompare, loading }) => {
 
   const handleCompare = async () => {
     setComparing(true);
-    
     try {
-      const response = await axios.post(
-        'http://localhost:5000/api/compare',
-        { quotations: data },
-        { timeout: 30000 }
-      );
-
+      const response = await axios.post('http://localhost:5000/api/compare', { quotations: data }, { timeout: 30000 });
       console.log('Comparison response:', response.data);
-      // Support both enhanced response {comparison, recommendation} and legacy flat response
       const comparisonData = response.data.comparison || response.data;
       const recommendationData = response.data.recommendation;
-      // Attach recommendation to comparison so it's available in this component too
       if (comparisonData && recommendationData) {
         comparisonData.recommendation = recommendationData;
       }
       onCompare(comparisonData, recommendationData);
-
     } catch (err) {
       console.error('Comparison error:', err);
       alert('Failed to generate comparison: ' + (err.response?.data?.error || err.message));
@@ -38,8 +29,46 @@ const ComparisonTable = ({ data, comparison, onCompare, loading }) => {
     }
   };
 
-  // Filter valid data - needs a vendor field
   const validData = data.filter(item => item.success !== false && item.vendor);
+
+  // Calculate comprehensive metrics
+  const calculateMetrics = () => {
+    const prices = validData.filter(v => v.price > 0).map(v => v.price);
+    const deliveries = validData.filter(v => v.delivery_days > 0).map(v => v.delivery_days);
+    
+    const minPrice = Math.min(...prices) || 0;
+    const maxPrice = Math.max(...prices) || 0;
+    const minDelivery = Math.min(...deliveries) || 0;
+    const maxDelivery = Math.max(...deliveries) || 0;
+    
+    const vendors = validData.map(v => ({
+      ...v,
+      costPerDay: v.price && v.delivery_days ? (v.price / v.delivery_days).toFixed(0) : 0,
+      priceFromMin: v.price ? ((v.price - minPrice) / (minPrice || 1) * 100).toFixed(1) : 0,
+      valueScore: calculateValueScore(v, prices, deliveries)
+    })).sort((a, b) => a.valueScore - b.valueScore)
+      .map((v, idx) => ({...v, rank: idx + 1}));
+
+    return {
+      minPrice, maxPrice,
+      avgPrice: prices.length ? (prices.reduce((a, b) => a + b, 0) / prices.length).toFixed(0) : 0,
+      priceRange: maxPrice - minPrice,
+      minDelivery, maxDelivery,
+      avgDelivery: deliveries.length ? (deliveries.reduce((a, b) => a + b, 0) / deliveries.length).toFixed(1) : 0,
+      vendors
+    };
+  };
+
+  const calculateValueScore = (vendor, prices, deliveries) => {
+    if (!vendor.price || !vendor.delivery_days) return 999;
+    const minPrice = Math.min(...prices);
+    const maxPrice = Math.max(...prices);
+    const minDel = Math.min(...deliveries);
+    const maxDel = Math.max(...deliveries);
+    const priceNorm = ((vendor.price - minPrice) / (maxPrice - minPrice || 1)) * 50;
+    const delNorm = ((vendor.delivery_days - minDel) / (maxDel - minDel || 1)) * 50;
+    return priceNorm + delNorm;
+  };
 
   if (validData.length === 0) {
     return (
@@ -56,111 +85,157 @@ const ComparisonTable = ({ data, comparison, onCompare, loading }) => {
     );
   }
 
+  const metrics = calculateMetrics();
+
   const getHighlight = (item, field) => {
     if (!comparison) return '';
-    
     if (field === 'price' && comparison.lowestPrice) {
       return item.vendor === comparison.lowestPrice.vendor ? 'highlight-best' : '';
     }
-    
     if (field === 'delivery' && comparison.fastestDelivery) {
       return item.vendor === comparison.fastestDelivery.vendor ? 'highlight-best' : '';
     }
-    
     return '';
   };
 
   return (
     <div className="comparison-container">
+      {/* Header */}
       <div className="comparison-header">
-        <h2>📊 Vendor Comparison</h2>
-        <p className="subtitle">Detailed analysis of extracted quotation fields</p>
-        <button
-          onClick={handleCompare}
-          disabled={comparing || loading}
-          className="btn btn-compare"
-        >
+        <div className="header-content">
+          <h2>📊 Vendor Comparison Analysis</h2>
+          <p className="subtitle">Comparing {validData.length} vendor quotation(s)</p>
+        </div>
+        <button onClick={handleCompare} disabled={comparing || loading} className="btn btn-compare">
           {comparing ? (
-            <>
-              <span className="spinner-small"></span>
-              Analyzing...
-            </>
+            <><span className="spinner-small"></span> Analyzing...</>
           ) : (
             '🤖 Get AI Recommendation'
           )}
         </button>
       </div>
 
+      {/* Market Overview Metrics */}
+      <div className="metrics-panel">
+        <h3>📈 Market Overview</h3>
+        <div className="metrics-grid">
+          <div className="metric-card">
+            <div className="metric-icon">💰</div>
+            <div className="metric-label">Lowest Price</div>
+            <div className="metric-value">{metrics.minPrice.toLocaleString()}</div>
+            <div className="metric-sub">Range: {metrics.priceRange.toLocaleString()}</div>
+          </div>
+          <div className="metric-card">
+            <div className="metric-icon">📊</div>
+            <div className="metric-label">Average Price</div>
+            <div className="metric-value">{metrics.avgPrice.toLocaleString()}</div>
+            <div className="metric-sub">Market median</div>
+          </div>
+          <div className="metric-card">
+            <div className="metric-icon">⚡</div>
+            <div className="metric-label">Fastest Delivery</div>
+            <div className="metric-value">{metrics.minDelivery}</div>
+            <div className="metric-sub">{metrics.maxDelivery - metrics.minDelivery} day range</div>
+          </div>
+          <div className="metric-card">
+            <div className="metric-icon">📅</div>
+            <div className="metric-label">Average Delivery</div>
+            <div className="metric-value">{metrics.avgDelivery}</div>
+            <div className="metric-sub">days</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Extracted Fields Info */}
       <div className="extracted-fields-info">
         <div className="info-box">
-          <h4>📋 Extracted Fields from PDFs</h4>
+          <h4>📋 Extracted Field Details</h4>
           <div className="fields-grid">
             <div className="field-item">
-              <span className="field-label">Vendor:</span>
-              <span className="field-type">Company name from quotation</span>
+              <span className="field-label">Vendor</span>
+              <span className="field-type">Company name</span>
             </div>
             <div className="field-item">
-              <span className="field-label">Price:</span>
-              <span className="field-type">Total quotation amount (numeric)</span>
+              <span className="field-label">Price</span>
+              <span className="field-type">Total quotation amount</span>
             </div>
             <div className="field-item">
-              <span className="field-label">Delivery:</span>
-              <span className="field-type">Days to deliver (numeric)</span>
+              <span className="field-label">Delivery</span>
+              <span className="field-type">Days to delivery</span>
             </div>
             <div className="field-item">
-              <span className="field-label">Tax/GST:</span>
-              <span className="field-type">Tax percentage or amount</span>
+              <span className="field-label">Cost/Day</span>
+              <span className="field-type">Price efficiency metric</span>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Comparison Table */}
       <div className="table-container">
         <table className="comparison-table">
           <thead>
             <tr>
-              <th>Vendor</th>
+              <th>Rank</th>
+              <th>Vendor Name</th>
               <th>Total Price</th>
+              <th>Price Diff</th>
+              <th>Cost/Day</th>
               <th>Delivery Time</th>
               <th>Tax/GST</th>
-              <th>Description</th>
-              <th>File</th>
+              <th>Value Score</th>
+              <th>File Source</th>
             </tr>
           </thead>
           <tbody>
-            {validData.map((item, index) => (
-              <tr key={index}>
+            {metrics.vendors.map((item, index) => (
+              <tr key={index} className={`rank-${item.rank} ${item.rank === 1 ? 'best-value' : ''}`}>
+                <td className="rank-cell">
+                  <span className="rank-badge">#{item.rank}</span>
+                </td>
                 <td className="vendor-name">
                   <strong>{item.vendor || 'N/A'}</strong>
+                  {item.rank === 1 && <span className="best-badge">🏆 Best Value</span>}
                 </td>
                 <td className={`price-cell ${getHighlight(item, 'price')}`}>
                   {item.price > 0 ? (
                     <>
                       <span className="currency">{item.currency || '$'}</span>
                       <span className="amount">{item.price.toLocaleString()}</span>
+                      {getHighlight(item, 'price') && <span className="lowest-badge">💰 Lowest</span>}
                     </>
                   ) : (
                     <span className="not-available">N/A</span>
                   )}
-                  {getHighlight(item, 'price') && (
-                    <span className="badge">Lowest</span>
+                </td>
+                <td className="price-diff">
+                  {item.priceFromMin >= 0 ? (
+                    <span className={item.priceFromMin == 0 ? 'best' : 'higher'}>
+                      {item.priceFromMin == 0 ? 'Base' : `+${item.priceFromMin}%`}
+                    </span>
+                  ) : (
+                    'N/A'
                   )}
+                </td>
+                <td className="cost-per-day">
+                  {item.costPerDay > 0 ? item.costPerDay : 'N/A'}
                 </td>
                 <td className={`delivery-cell ${getHighlight(item, 'delivery')}`}>
                   {item.delivery_days > 0 ? (
                     <>
-                      {item.delivery_days} days
+                      <span>{item.delivery_days} days</span>
+                      {getHighlight(item, 'delivery') && <span className="fastest-badge">⚡ Fastest</span>}
                     </>
                   ) : (
                     <span className="not-available">N/A</span>
                   )}
-                  {getHighlight(item, 'delivery') && (
-                    <span className="badge">Fastest</span>
-                  )}
                 </td>
-                <td>{item.tax || 'N/A'}</td>
-                <td className="description-cell">
-                  {item.description || 'No description'}
+                <td className="tax-cell">{item.tax || 'N/A'}</td>
+                <td className="value-score">
+                  <div className="score-bar">
+                    <div className="score-fill" style={{width: Math.max(20, 100 - (item.rank * 25)) + '%'}}></div>
+                  </div>
+                  <span className="score-label">{Math.max(20, 100 - (item.rank * 25))}%</span>
                 </td>
                 <td className="file-cell">
                   <span className="file-badge">{item.fileName}</span>
@@ -171,15 +246,16 @@ const ComparisonTable = ({ data, comparison, onCompare, loading }) => {
         </table>
       </div>
 
+      {/* Comparison Summary */}
       {comparison && (
         <div className="comparison-summary">
-          <h3>📈 Comparison Analysis</h3>
+          <h3>🎯 Quick Comparison Summary</h3>
           <div className="summary-cards">
             {comparison.lowestPrice && (
               <div className="summary-card">
                 <div className="card-icon">💰</div>
                 <div className="card-content">
-                  <div className="card-label">Best Price</div>
+                  <div className="card-label">Lowest Price</div>
                   <div className="card-value">{comparison.lowestPrice.vendor}</div>
                   <div className="card-detail">
                     {comparison.lowestPrice.currency || '$'}
@@ -188,7 +264,6 @@ const ComparisonTable = ({ data, comparison, onCompare, loading }) => {
                 </div>
               </div>
             )}
-
             {comparison.fastestDelivery && (
               <div className="summary-card">
                 <div className="card-icon">⚡</div>
@@ -201,71 +276,64 @@ const ComparisonTable = ({ data, comparison, onCompare, loading }) => {
                 </div>
               </div>
             )}
-
             <div className="summary-card">
               <div className="card-icon">📦</div>
               <div className="card-content">
                 <div className="card-label">Total Vendors</div>
                 <div className="card-value">{comparison.totalQuotations}</div>
-                <div className="card-detail">Compared</div>
+                <div className="card-detail">Analyzed</div>
               </div>
             </div>
           </div>
         </div>
       )}
 
+      {/* AI Recommendation Card */}
       {comparison?.recommendation && (
         <div className="ai-recommendation">
           <div className="recommendation-header">
-            <h3>🤖 AI Recommendation</h3>
+            <h3>🤖 AI-Powered Recommendation</h3>
             <span className="badge-success">Intelligent Analysis</span>
           </div>
-
           <div className="recommendation-card">
             <div className="rec-vendor-badge">
               <span className="rec-vendor">{comparison.recommendation.recommendedVendor}</span>
               <span className="rec-icon">✅ Recommended</span>
             </div>
-
             <div className="rec-reason">
-              <h4>Why This Vendor?</h4>
+              <h4>💡 Why This Vendor?</h4>
               <p className="rec-text">{comparison.recommendation.reason}</p>
             </div>
-
             {comparison.recommendation.reasoning && (
               <div className="rec-reasoning">
-                <h4>Analysis Logic</h4>
+                <h4>🧠 Decision Logic</h4>
                 <p className="rec-logic">{comparison.recommendation.reasoning}</p>
               </div>
             )}
-
-            <div className="rec-factors">
-              <h4>Key Factors</h4>
-              <ul>
-                {comparison.recommendation.keyFactors && comparison.recommendation.keyFactors.map((factor, idx) => (
-                  <li key={idx}>
-                    <span className="factor-icon">✓</span>
-                    {factor}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
+            {comparison.recommendation.keyFactors && comparison.recommendation.keyFactors.length > 0 && (
+              <div className="rec-factors">
+                <h4>🔑 Key Factors</h4>
+                <ul>
+                  {comparison.recommendation.keyFactors.map((factor, idx) => (
+                    <li key={idx}><span className="factor-icon">✓</span>{factor}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {comparison.recommendation.savingsInfo && (
               <div className="rec-savings">
                 <span className="savings-icon">💵</span>
                 <span className="savings-text">{comparison.recommendation.savingsInfo}</span>
               </div>
             )}
-
             {comparison.recommendation.analysis && (
               <div className="rec-analysis">
-                <h4>Market Analysis</h4>
+                <h4>📊 Market Context</h4>
                 <div className="analysis-grid">
                   {comparison.recommendation.analysis.averagePrice && (
                     <div className="analysis-item">
                       <span className="analysis-label">Average Price</span>
-                      <span className="analysis-value">${parseFloat(comparison.recommendation.analysis.averagePrice).toLocaleString()}</span>
+                      <span className="analysis-value">{parseFloat(comparison.recommendation.analysis.averagePrice).toLocaleString()}</span>
                     </div>
                   )}
                   {comparison.recommendation.analysis.averageDelivery && (
