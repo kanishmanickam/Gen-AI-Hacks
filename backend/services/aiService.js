@@ -66,6 +66,17 @@ ${quotationText.substring(0, 3000)}`;
     );
 
     const responseText = response.data.candidates[0].content.parts[0].text.trim();
+    
+    // Parse JSON from response
+    let extractedData;
+    try {
+      // Remove markdown code blocks if present
+      const jsonText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      extractedData = JSON.parse(jsonText);
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      throw new Error('Failed to parse AI response as JSON');
+    }
 
     // Add metadata
     extractedData.fileName = fileName;

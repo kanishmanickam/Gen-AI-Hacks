@@ -103,7 +103,22 @@ const FileUpload = ({ onDataExtracted, onLoading, onReset }) => {
       console.log('Response:', response.data);
 
       if (response.data.results) {
-        onDataExtracted(response.data.results);
+        // Transform the results to ensure proper format
+        const transformedResults = response.data.results.map(result => {
+          // If analyze mode, the extracted data is in analysis object
+          if (result.analysis && typeof result.analysis === 'object') {
+            return {
+              ...result.analysis,
+              fileName: result.fileName,
+              success: result.success
+            };
+          }
+          // If extract mode or already in correct format
+          return result;
+        }).filter(r => r.success !== false); // Filter out failed extractions
+        
+        console.log('Transformed results:', transformedResults);
+        onDataExtracted(transformedResults);
       }
 
     } catch (err) {
