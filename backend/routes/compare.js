@@ -60,7 +60,7 @@ router.post('/', async (req, res) => {
 
     // Generate AI recommendation if API key is available
     let recommendation = null;
-    if (process.env.OPENAI_API_KEY) {
+    if (process.env.GEMINI_API_KEY) {
       try {
         console.log(`🤖 Generating AI recommendation...`);
         recommendation = await generateRecommendation(validQuotations);
@@ -73,7 +73,7 @@ router.post('/', async (req, res) => {
       }
     } else {
       recommendation = {
-        message: 'OpenAI API key not configured. Add OPENAI_API_KEY to .env for AI recommendations.'
+        message: 'Gemini API key not configured. Add GEMINI_API_KEY to .env for AI recommendations.'
       };
     }
 

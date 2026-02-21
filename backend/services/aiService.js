@@ -9,7 +9,7 @@ const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/
 
 // Get API key dynamically (read at function call time, not module load time)
 function getGeminiApiKey() {
-  return process.env.OPENAI_API_KEY;
+  return process.env.GEMINI_API_KEY;
 }
 
 /**

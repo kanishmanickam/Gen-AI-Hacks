@@ -24,7 +24,7 @@
     }
   ],
   "env": {
-    "OPENAI_API_KEY": "@openai_api_key",
+    "GEMINI_API_KEY": "@gemini_api_key",
     "CORS_ORIGIN": "https://gen-ai-hacks.vercel.app"
   }
 }
