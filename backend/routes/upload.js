@@ -144,15 +144,16 @@ router.post('/analyze', upload.array('files', 20), async (req, res) => {
           // For structured data (Excel, CSV, JSON)
           analysis = await analyzeData(extractedData, file.originalname);
         } else {
-          // For unstructured data (PDF, Word, Text)
+          // For unstructured data (PDF, Word, Text) — extract quotation fields directly
           const quotationData = await extractQuotationData(
             extractedData.content,
             file.originalname
           );
+          // Flatten quotation fields into analysis so frontend can read vendor, price, etc. directly
           analysis = {
-            analysisType: 'Content Analysis',
+            ...quotationData,
+            analysisType: 'Quotation Extraction',
             fileType: extractedData.fileType,
-            data: quotationData
           };
         }
         
@@ -160,8 +161,9 @@ router.post('/analyze', upload.array('files', 20), async (req, res) => {
           fileName: file.originalname,
           fileType: extractedData.fileType,
           isStructured: extractedData.isStructured,
+          // Spread analysis fields to top level so ComparisonTable can access vendor, price, etc.
+          ...analysis,
           analysis: analysis,
-          dataPreview: extractedData.content.substring(0, 500),
           success: true
         });
         

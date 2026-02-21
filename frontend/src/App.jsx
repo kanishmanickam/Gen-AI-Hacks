@@ -19,8 +19,11 @@ function App() {
   };
 
   const handleComparisonComplete = (comparisonData, recommendationData) => {
-    setComparison(comparisonData);
-    setRecommendation(recommendationData);
+    // Backend returns either enhanced {summary, comparison, recommendation} or flat {comparison, recommendation}
+    const comparison = comparisonData?.comparison || comparisonData;
+    const recommendation = recommendationData || comparisonData?.recommendation || comparison?.recommendation;
+    setComparison(comparison);
+    setRecommendation(recommendation);
     setWorkflowStep(3); // Move to recommendation step
   };
 

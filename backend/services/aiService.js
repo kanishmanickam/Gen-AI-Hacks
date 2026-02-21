@@ -179,27 +179,63 @@ Return ONLY the JSON object.`;
   } catch (error) {
     console.error('Gemini recommendation error:', error.message);
     
-    // Fallback: Generate demo recommendation
-    console.log('⚠️ Using demo recommendation for testing...');
+    // Fallback: Generate intelligent recommendation based on analysis
+    console.log('⚠️ Generating intelligent recommendation based on analysis...');
     
     if (!quotations || quotations.length === 0) {
       return {
-        recommendedVendor: "Demo Vendor 1",
-        reason: "Best overall value with competitive pricing and fast delivery.",
-        keyFactors: ["Lowest price", "Fast delivery", "Reliable vendor"],
-        savingsInfo: "Approximately 15-20% savings compared to other vendors"
+        recommendedVendor: "No vendors available",
+        reason: "Please upload quotations to get AI recommendations.",
+        keyFactors: [],
+        savingsInfo: "N/A",
+        reasoning: "No data to analyze"
       };
     }
     
-    // Find best based on price and delivery
-    const sorted = [...quotations].sort((a, b) => (a.price || 0) - (b.price || 0));
-    const best = sorted[0] || quotations[0];
+    // Analyze quotations intelligently
+    const priceData = quotations.filter(q => q.price > 0).sort((a, b) => a.price - b.price);
+    const deliveryData = quotations.filter(q => q.delivery_days > 0).sort((a, b) => a.delivery_days - b.delivery_days);
+    
+    const cheapest = priceData[0];
+    const fastest = deliveryData[0];
+    const avgPrice = priceData.length > 0 ? priceData.reduce((sum, q) => sum + q.price, 0) / priceData.length : 0;
+    const avgDelivery = deliveryData.length > 0 ? deliveryData.reduce((sum, q) => sum + q.delivery_days, 0) / deliveryData.length : 0;
+    
+    // Determine best recommendation
+    let best = cheapest || quotations[0];
+    let reason = "";
+    let keyFactors = [];
+    let reasoning = "";
+    
+    if (cheapest && fastest && cheapest.vendor === fastest.vendor) {
+      best = cheapest;
+      reason = `${best.vendor} offers the best overall value - lowest price and fastest delivery. Recommended for optimal cost-efficiency.`;
+      keyFactors = ["Lowest price", "Fastest delivery", "Best overall value"];
+      reasoning = "Single vendor wins on both price and delivery - clear choice.";
+    } else if (cheapest) {
+      const savings = ((avgPrice - cheapest.price) / avgPrice * 100).toFixed(1);
+      best = cheapest;
+      reason = `${best.vendor} provides the lowest price at ${best.currency || '$'}${best.price.toLocaleString()}, delivering in ${best.delivery_days} days. This represents ${savings}% savings compared to average.`;
+      keyFactors = [`${savings}% below average price`, `${best.delivery_days} day delivery`, "Most cost-effective option"];
+      reasoning = "Price-focused recommendation based on maximum savings across all quotations.";
+    }
+    
+    const savingsAmount = cheapest ? (avgPrice - cheapest.price) : 0;
     
     return {
       recommendedVendor: best.vendor || "Recommended Vendor",
-      reason: `Best value with price of ${best.price || 'N/A'} and delivery in ${best.delivery_days || 'N/A'} days.`,
-      keyFactors: ["Competitive pricing", "Reliable delivery", "Quality products"],
-      savingsInfo: "Best selected from available quotations"
+      reason: reason,
+      keyFactors: keyFactors,
+      savingsInfo: savingsAmount > 0 ? `Save ${best.currency || '$'}${savingsAmount.toLocaleString()} compared to average` : "N/A",
+      reasoning: reasoning,
+      analysis: {
+        cheapestVendor: cheapest?.vendor,
+        cheapestPrice: cheapest?.price,
+        fastestVendor: fastest?.vendor,
+        fastestDelivery: fastest?.delivery_days,
+        averagePrice: avgPrice.toFixed(2),
+        averageDelivery: avgDelivery.toFixed(1)
+      }
     };
   }
 }

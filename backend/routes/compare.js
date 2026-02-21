@@ -77,11 +77,43 @@ router.post('/', async (req, res) => {
       };
     }
 
-    res.json({
-      message: 'Comparison completed',
+    // Enhanced structured response with detailed analysis
+    const enhancedResponse = {
+      status: 'success',
+      timestamp: new Date().toISOString(),
+      summary: {
+        totalVendors: validQuotations.length,
+        lowestPrice: comparison.lowestPrice?.price,
+        lowestPriceVendor: comparison.lowestPrice?.vendor,
+        fastestDelivery: comparison.fastestDelivery?.delivery_days,
+        fastestDeliveryVendor: comparison.fastestDelivery?.vendor
+      },
       comparison: comparison,
-      recommendation: recommendation
-    });
+      recommendation: recommendation,
+      extractedFields: {
+        description: "Structured vendor data extracted from quotations",
+        fields: [
+          { name: "vendor", description: "Company name", type: "string" },
+          { name: "price", description: "Total quotation price", type: "number" },
+          { name: "delivery_days", description: "Delivery time in days", type: "number" },
+          { name: "tax", description: "Tax/GST amount or percentage", type: "string" },
+          { name: "description", description: "Products/services description", type: "string" },
+          { name: "currency", description: "Currency code (USD, INR, EUR, etc.)", type: "string" }
+        ],
+        vendors: validQuotations.map((q, idx) => ({
+          rank: idx + 1,
+          vendor: q.vendor,
+          price: q.price,
+          currency: q.currency || 'N/A',
+          delivery_days: q.delivery_days,
+          tax: q.tax,
+          fileName: q.fileName,
+          description: q.description
+        }))
+      }
+    };
+
+    res.json(enhancedResponse);
 
   } catch (error) {
     console.error('Compare error:', error);
