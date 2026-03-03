@@ -47,7 +47,7 @@ Write-Host "Next steps:" -ForegroundColor Yellow
 Write-Host "  1. Go to https://vercel.com/dashboard" -ForegroundColor Gray
 Write-Host "  2. Select your project" -ForegroundColor Gray
 Write-Host "  3. Go to Settings → Environment Variables" -ForegroundColor Gray
-Write-Host "  4. Add GEMINI_API_KEY = AIzaSyB4WxEIVJIAaHRxDEJlja1GXdLGXaMs-bI" -ForegroundColor Gray
+Write-Host "  4. Add GEMINI_API_KEY = ur_key" -ForegroundColor Gray
 Write-Host "  5. Redeploy from Vercel dashboard" -ForegroundColor Gray
 Write-Host ""
 Write-Host "Verify your deployment:" -ForegroundColor Yellow
