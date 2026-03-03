@@ -152,7 +152,7 @@ After deployment:
 
 ### **Required**
 ```
-GEMINI_API_KEY=AIzaSyB4WxEIVJIAaHRxDEJlja1GXdLGXaMs-bI
+GEMINI_API_KEY=ur_key
 ```
 
 ### **Optional** (Auto-set by platform)
